@@ -16,16 +16,25 @@ power32 = PowerSpec(
             winfunc = nuttall,
             type = Vector{Float32})
 
-function gety0(x::Vector{T}, ỹ::Vector, k::Real, x0::Real) where T
+
+"""
+观测值 xᵢ, yᵢ
+    y₀ = 1 - ∑ᵢ( exp(-k * (xᵢ+x₀)) + yᵢ )
+"""
+function gety0(x::Vector{T}, y::Vector, k::Real, x₀::Real) where T
     l = one(T)
     N = T(length(x))
-    return l - sum(@. exp(-k * (x + X0)) + ỹ) / N
+    return l - sum(@. exp(-k * (x + x₀)) + y) / N
 end
 
 
-function fitted(x::Vector{T}, k::Real, x0::Real, y0::Real) where T
+"""
+    y(x) = 1 - exp[-k * (xᵢ+x₀)] - y₀
+"""
+function fity(x::Vector{T}, k::Real, x₀::Real, y₀::Real) where T
     l = one(T)
-    return @. l - exp(-k * (x + X0)) - y0
+    y = @. l - exp(-k * (x + x₀)) - y₀
+    return y
 end
 
 
@@ -40,8 +49,17 @@ function fminfmax(P::PowerSpec)
 end
 
 
+function dt(P::PowerSpec)
+    F = P.fs
+    S = P.stride
+    seconds = S / F
+    return seconds
+end
+
+
 # (i-1)/(N-1) = (f-fmin)/(fmax-fmin)
-function freq(P::PowerSpec, i::Int, N::Int)
+# f = (i-1)/(N-1) * (fmax-fmin) + fmin
+function getfreq(P::PowerSpec, i::Real, N::Real)
     fs   = P.fs
     IMIN = P.fminidx
     IMAX = P.fmaxidx

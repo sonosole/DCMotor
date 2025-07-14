@@ -64,7 +64,7 @@ end
 
 println("  K=$K\n X0=$X0\n y0=$y0\n")
 
-ypred = fitted(x, K, X0, y0)
+ypred = fity(x, K, X0, y0)
 
 # 速度、扭矩
 vel = ypred[2:end]
