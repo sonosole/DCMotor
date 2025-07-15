@@ -2,8 +2,8 @@
 info = tvsf(power32, "../data/2025630_1_OK/113356526.csv";verbose=true,lr=1e-2)
 
 rpm  = 2250
-Nm⁻¹ = 1.15
-coef = TSCoef(info, rpm, Nm⁻¹)
+Nm = 1.15
+coef = TSCoef(info, rpm, Nm)
 lcoef = LineCoef(coef, info)
 n,t = drawtn(lcoef)
 plot(t,n, framestyle=:origin, label="ok")

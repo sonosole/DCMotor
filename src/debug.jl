@@ -1,4 +1,4 @@
-function tvsf(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, verbose::Bool=false)
+function tfcurve(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, verbose::Bool=false)
     # 读取文件并求功率谱
     v  = read_dc_motor(csv)
     Xω = power(v)
@@ -14,7 +14,6 @@ function tvsf(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, ver
     # 时域最大值点最为像两侧搜索的起点
     ratio = argmax(v) / length(v)
     idxsearch = max(floor(Int, ratio * COLS), 1)
-    
     # 向左侧搜维持递减的最小索引
     IMIN = idxsearch
     for i = idxsearch : -1 : 2
@@ -23,6 +22,16 @@ function tvsf(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, ver
             break
         end
     end
+    # 像右侧搜索维持递增的最大索引
+    IMAX = idxsearch
+    for i = idxsearch : 1 : COLS-1
+        if fids[i] > fids[i+1]
+            IMAX = i
+            break
+        end
+    end
+
+    println("起始频率为 $IMIN:$IMAX  $COLS")
 
     # 用最大值将频率坐标归一化到 [0,1] 范围内
     MAX = last(fids)
@@ -68,67 +77,50 @@ function tvsf(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, ver
         end
     end
 
+    Δt = dt(power)
+    t = x .* Δt
     T = N * dt(power)             # 持续拟合时间,电机加速时间
     F = getfreq(power, MAX, ROWS) # DC 电机最高频率
-    return TSInfo(y₀, K, T, F)
+    p = fity(x, K, X₀, y₀) .* F   # 预测值
+    fig = plot(t, p, label="predicted")
+    plot!(t, y .* F, label="observed")
+    return fig
 end
 
 
-struct TSInfo
-    y₀ :: Real
-    k  :: Real
-    T  :: Real
-    F  :: Real
-    function TSInfo(y₀::Real, K::Real, T::Real, F::Real)
-        new(y₀, K, T, F)
+function showspec(power::PowerSpec, csv::String)
+    x  = read_dc_motor(csv)
+    Xω = power(x)
+    return heatmap(Xω)
+end
+
+
+function ftrend(power::PowerSpec, csv::String)
+    # 读取文件并求功率谱
+    v  = read_dc_motor(csv)
+    Xω = power(v)
+
+    # 以最大值为时频图的脊线
+    ROWS, COLS = size(Xω)
+    fids = Vector{Float32}(undef, COLS)
+    for cindx ∈ argmax(Xω, dims=1)
+        rowi, coli = Tuple(cindx)
+        fids[coli] = rowi
     end
-end
 
-
-# calibration via rmp and Nm
-struct TSCoef
-    F2N :: Real
-    GD2 :: Real
-    function TSCoef(tsinfo::TSInfo, rmp::Real, Nm::Real)
-        y₀ = tsinfo.y₀
-        k  = tsinfo.k
-        T  = tsinfo.T
-        F  = tsinfo.F
-        F2N = rmp / F
-        GD2 = Nm / ( (1-y₀)*k/T * rmp )
-        new(F2N, GD2)
+    # 时域最大值点最为像两侧搜索的起点
+    ratio = argmax(v) / length(v)
+    idxsearch = max(floor(Int, ratio * COLS), 1)
+    # 向左侧搜维持递减的最小索引
+    IMIN = idxsearch
+    for i = idxsearch : -1 : 2
+        if fids[i-1] > fids[i]
+            IMIN = i
+            break
+        end
     end
+    println("起始频率为 $IMIN")
+    println("最大频率为 $COLS")
+
+    return plot(fids)
 end
-
-
-struct LineCoef
-    y₀ :: Real
-    k  :: Real
-    T  :: Real
-    N  :: Real
-    Q  :: Real
-    function LineCoef(coef::TSCoef, info::TSInfo)
-        y₀ = info.y₀
-        k  = info.k
-        T  = info.T
-        N  = info.F * coef.F2N
-        Q  = coef.GD2
-        new(y₀, k, T, N, Q)
-    end
-end
-
-
-function drawtn(LC::LineCoef)
-    y₀ = LC.y₀
-    k  = LC.k
-    T  = LC.T
-    Q  = LC.Q
-    N  = floor(Int, LC.N)
-    torque = Vector{Float32}(undef, N+1)
-    for n = 0:N
-        torque[n+1] = Q * k * N / T * (1 - y₀ - n/N)
-    end
-    return 0:N, torque
-end
-
-
