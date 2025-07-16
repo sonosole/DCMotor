@@ -101,6 +101,9 @@ struct TSCoef
 end
 
 
+# n-T 曲线线性资料
+# https://www.nidec-group.cn/technology/motor/basic/00213
+# https://journals.nwpu.edu.cn/xbgydxxb/FileUp/HTML/20160620.htm
 struct LineCoef
     y₀ :: Real
     k  :: Real
