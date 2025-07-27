@@ -1,12 +1,13 @@
 using AcousticFeatures
 using CubicSplines
 using Mira, Plots
-
+using Wavelets
 
 FMIN = 100
 FMAX = 1100
+RATE = 60240
 power32 = PowerSpec(
-            fs = 60240,
+            fs = RATE,
             fmin = FMIN,
             fmax = FMAX,
             winlen = 4096,
@@ -24,7 +25,8 @@ power32 = PowerSpec(
 function gety0(x::Vector{T}, y::Vector, k::Real, x₀::Real) where T
     l = one(T)
     N = T(length(x))
-    return l - sum(@. exp(-k * (x + x₀)) + y) / N
+    y₀ = l - sum(@. exp(-k * (x + x₀)) + y) / N
+    return clamp01(y₀)
 end
 
 
@@ -83,3 +85,9 @@ function rspeed(f::Real, k::Int, p::Int)
     return n
 end
 
+
+function clamp01(x::T) where T
+    EPS = T(1e-9)
+    ONE = one(T)
+    return clamp(x, EPS, ONE - EPS)
+end

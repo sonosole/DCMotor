@@ -3,7 +3,7 @@ function tvsf(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, ver
     v  = read_dc_motor(csv)
     Xω = power(v)
 
-    # 以最大值为时频图的脊线
+    # 以最大值为时频图的脊线,ROWS对应频率轴,COLS对应时间轴
     ROWS, COLS = size(Xω)
     fids = Vector{Float32}(undef, COLS)
     for cindx ∈ argmax(Xω, dims=1)
@@ -11,7 +11,7 @@ function tvsf(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, ver
         fids[coli] = rowi
     end
 
-    # 时域最大值点最为像两侧搜索的起点
+    # 时域最大值点,作为向左侧搜索的起点
     ratio = argmax(v) / length(v)
     idxsearch = max(floor(Int, ratio * COLS), 1)
     
@@ -35,7 +35,6 @@ function tvsf(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, ver
     N = length(y)
     x = collect(1:N) ./ N
 
-    # 系数来自函数 y(x) = 1 - exp[k(x+x₀)] - y₀
     k  = Info([8.0], keepsgrad=true)
     x₀ = Info([0.0], keepsgrad=true)
     xparms = Vector{Tuple{Char, Info}}()
@@ -62,15 +61,20 @@ function tvsf(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, ver
         K  = first( ᵈ(k)  )
         X₀ = first( ᵈ(x₀) )
         y₀ = gety0(x, y, K, X₀)
-
-        if C < 1e-4 && e > 10
-            break
-        end
     end
 
     T = N * dt(power)             # 持续拟合时间,电机加速时间
     F = getfreq(power, MAX, ROWS) # DC 电机最高频率
-    return TSInfo(y₀, K, T, F)
+
+    # 转速为零时候x取值
+    zerospeedx = -log(1f0 - y₀) / K - X₀
+    # 转速为零时的x取值，对应的，在时频图的时间开始索引
+    INITidx = IMIN + zerospeedx * N
+    # 时频图的比例折算成电流采样的开始索引
+    # Lv = length(v)
+    # tidx = (INITidx - 1) / (COLS - 1) * (Lv - 1) + 1
+    # println("zero_speed_x = ", zero_speed_x*N)
+    return TSInfo(y₀, K, T, F)#, v[tidx : Lv]
 end
 
 
@@ -85,17 +89,17 @@ struct TSInfo
 end
 
 
-# calibration via rmp and Nm
+# calibration via rpm and Nm
 struct TSCoef
     F2N :: Real
     GD2 :: Real
-    function TSCoef(tsinfo::TSInfo, rmp::Real, Nm::Real)
+    function TSCoef(tsinfo::TSInfo, rpm::Real, Nm::Real)
         y₀ = tsinfo.y₀
         k  = tsinfo.k
         T  = tsinfo.T
         F  = tsinfo.F
-        F2N = rmp / F
-        GD2 = Nm / ( (1-y₀)*k/T * rmp )
+        F2N = rpm / F
+        GD2 = Nm * T / ( k * rpm * (1-y₀) )
         new(F2N, GD2)
     end
 end
@@ -129,7 +133,7 @@ function drawtn(LC::LineCoef)
     N  = floor(Int, LC.N)
     torque = Vector{Float32}(undef, N+1)
     for n = 0:N
-        torque[n+1] = Q * k * N / T * (1 - y₀ - n/N)
+        torque[n+1] = k * Q * N / T * (1 - y₀ - n/N)
     end
     return 0:N, torque
 end

@@ -11,7 +11,7 @@ function tfcurve(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, 
         fids[coli] = rowi
     end
 
-    # 时域最大值点最为像两侧搜索的起点
+    # 时域最大值点为搜索的起点
     ratio = argmax(v) / length(v)
     idxsearch = max(floor(Int, ratio * COLS), 1)
     # 向左侧搜维持递减的最小索引
@@ -71,19 +71,17 @@ function tfcurve(power::PowerSpec, csv::String; lr::Real=1e-2, epochs::Int=500, 
         K  = first( ᵈ(k)  )
         X₀ = first( ᵈ(x₀) )
         y₀ = gety0(x, y, K, X₀)
-
-        if C < 1e-4 && e > 10
-            break
-        end
     end
 
     Δt = dt(power)
-    t = x .* Δt
+    t = x .* Δt .* N
     T = N * dt(power)             # 持续拟合时间,电机加速时间
     F = getfreq(power, MAX, ROWS) # DC 电机最高频率
-    p = fity(x, K, X₀, y₀) .* F   # 预测值
-    fig = plot(t, p, label="predicted")
-    plot!(t, y .* F, label="observed")
+    p = fity(x, K, X₀, y₀)        # 预测值
+    fig = plot(t, y .* F, xlabel="time (s)",
+                          ylabel="frequency (Hz)", linewidth=5,
+                          label="observed", alpha=0.6)
+    plot!(t, p .* F, label="predicted", linecolor=:black)
     return fig
 end
 
@@ -108,7 +106,7 @@ function ftrend(power::PowerSpec, csv::String)
         fids[coli] = rowi
     end
 
-    # 时域最大值点最为像两侧搜索的起点
+    # 时域最大值点为搜索的起点
     ratio = argmax(v) / length(v)
     idxsearch = max(floor(Int, ratio * COLS), 1)
     # 向左侧搜维持递减的最小索引
@@ -119,8 +117,8 @@ function ftrend(power::PowerSpec, csv::String)
             break
         end
     end
-    println("起始频率为 $IMIN")
-    println("最大频率为 $COLS")
+    println("起始频率的时间为 $IMIN")
+    println("最大频率的时间为 $COLS")
 
     return plot(fids)
 end
