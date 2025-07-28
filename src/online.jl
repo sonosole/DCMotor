@@ -60,14 +60,18 @@ function tvsf(power::PowerSpec, v::Vector{Float32}; lr::Real=1e-2, epochs::Int=5
         K  = first( ᵈ(k)  )
         X₀ = first( ᵈ(x₀) )
         y₀ = gety0(x, y, K, X₀)
-
-        if C < 1e-4 && e > 10
-            break
-        end
     end
 
     T = N * dt(power)             # 持续拟合时间,电机加速时间
     F = getfreq(power, MAX, ROWS) # DC 电机最高频率
 
-    return TSInfo(y₀, K, T, F)
+    # 转速为零时候x取值
+    zerospeedx = -log(1f0 - y₀) / K - X₀
+    # 转速为零时的x取值，对应的，在时频图的时间开始索引
+    INITidx = IMIN + zerospeedx * N
+    # 时频图的比例折算成电流采样的开始索引
+    Lv = length(v)
+    tidx = floor(Int,(INITidx - 1) / (COLS - 1) * (Lv - 1) + 1)
+    println("zero_speed_x = ", zerospeedx*N)
+    return TSInfo(y₀, K, T, F), v[tidx : Lv]
 end
