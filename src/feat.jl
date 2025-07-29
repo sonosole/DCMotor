@@ -22,7 +22,7 @@ power32 = PowerSpec(
 观测值 xᵢ, yᵢ
     y₀ = 1 - ∑ᵢ( exp(-k * (xᵢ+x₀)) + yᵢ )
 """
-function gety0(x::Vector{T}, y::Vector, k::Real, x₀::Real) where T
+function gety0(x::Vector{T}, y::Vector{T}, k::Real, x₀::Real) where T
     l = one(T)
     N = T(length(x))
     y₀ = l - sum(@. exp(-k * (x + x₀)) + y) / N
@@ -86,8 +86,4 @@ function rspeed(f::Real, k::Int, p::Int)
 end
 
 
-function clamp01(x::T) where T
-    EPS = T(1e-9)
-    ONE = one(T)
-    return clamp(x, EPS, ONE - EPS)
-end
+

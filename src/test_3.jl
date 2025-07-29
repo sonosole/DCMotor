@@ -26,3 +26,18 @@ plot!(tz,nz, framestyle=:origin, label="ng", xlabel="torque (N/m)", ylabel="spee
 
 
 gui()
+
+
+
+
+
+calibrate(
+    read_dc_motor("../data/2025630_1_OK/113443396.csv"),
+    1100,
+    60240,
+    2250,
+    1.15)
+
+
+
+torque, speed, eleci = estimate(read_dc_motor("../data/2025630_1_OK/113443396.csv"), 1100, 60240)
