@@ -6,9 +6,9 @@ using Plots
 
 # 约束到 (ϵ, 1-ϵ)
 function clamp01(x::T) where T
-    EPS = T(1e-9)
-    ONE = one(T)
-    return clamp(x, EPS, ONE - EPS)
+    ϵ = T(1e-19)
+    l = one(T)
+    return clamp(x, ϵ, l - ϵ)
 end
 
 # 时间分辨率
@@ -37,7 +37,7 @@ end
 观测值 xᵢ, yᵢ
     y₀ = 1 - ∑ᵢ( exp(-k * (xᵢ+x₀)) + yᵢ )
 """
-function gety0(x::Vector{T}, y::Vector{T}, k::Real, x₀::Real) where T
+function gety₀(x::Vector{T}, y::Vector{T}, k::Real, x₀::Real) where T
     l = one(T)
     N = T(length(x))
     y₀ = l - sum(@. exp(-k * (x + x₀)) + y) / N
@@ -112,7 +112,7 @@ function getxyTF(v::Vector{D}) where D <: Real
     end
 
     T = N * dt(power)             # 持续拟合时间,电机加速时间
-    F = getfreq(power, MAX, ROWS) # 最高频率,  以 Hz 为单位
+    F = getfreq(power, MAX, ROWS) # 最高频率,以 Hz 为单位
 
     return x, y, T, F
 end
@@ -148,7 +148,7 @@ function train(x::Vector{T}, y::Vector{T}; epochs::Int=500, lr=1e-2, verbose=fal
 
         K  = first( ᵈ(k)  )
         X₀ = first( ᵈ(x₀) )
-        y₀ = gety0(x, y, K, X₀)
+        y₀ = gety₀(x, y, K, X₀)
     end
     return K, X₀, y₀
 end
@@ -158,8 +158,8 @@ function calibrate(v::Vector{D}, fmax::Real, fs::Real, RPM::Real, Nm::Real; verb
     set_fmin_fmax_fs!(100, fmax, fs)
     x, y, T, F = getxyTF(v)
     k, x₀, y₀  = train(x, y, verbose=false)
-    global F2N = RPM / F
     global GD2 = Nm * T / ( k * RPM * (1-y₀) )
+    global F2N = RPM / F
     return nothing
 end
 
@@ -193,6 +193,32 @@ function estimate(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
 end
 
 
+function estimate2(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
+    set_fmin_fmax_fs!(100, fmax, fs)
+    x, y, T, F = getxyTF(v)
+    k, x₀, y₀  = train(x, y, verbose=false)
+    global F2N
+    global GD2
+    L = length(x)
+    Q = GD2
+    N = F * F2N
+    k⁻¹  = inv(k)
+    nmax = N * (1 - y₀)
+    τmax = k * Q * N * (1 - y₀) / T
+    nspan  = range(0, nmax, 1000)
+    nbins  = length(nspan)
+    torque = Vector{D}(undef, nbins)
+    speed  = Vector{D}(undef, nbins)
+    eleci  = Vector{D}(undef, nbins)
+    
+    for (i, n) ∈ enumerate(nspan)
+        C = 1 - y₀ - n / N
+        speed[i] = n
+        torque[i] = k * Q * N / T * C
+        eleci[i] = L * (- x₀ - k⁻¹ * log(C))
+    end
+    return torque, speed, eleci
+end
 # end
 
 
