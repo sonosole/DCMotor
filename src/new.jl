@@ -3,6 +3,7 @@
 using AcousticFeatures
 using Mira
 using Plots
+using DSP
 
 # 约束到 (ϵ, 1-ϵ)
 function clamp01(x::T) where T
@@ -41,7 +42,8 @@ function gety₀(x::Vector{T}, y::Vector{T}, k::Real, x₀::Real) where T
     l = one(T)
     N = T(length(x))
     y₀ = l - sum(@. exp(-k * (x + x₀)) + y) / N
-    return clamp01(y₀)
+    # return clamp01(y₀)
+    return y₀
 end
 
 
@@ -84,7 +86,8 @@ function getxyTF(v::Vector{D}) where D <: Real
     end
 
     # 时域最大值点,作为向左侧搜索的起点
-    ratio = argmax(v) / length(v)
+    Lv = length(v)
+    ratio = argmax(v) / Lv
     idxsearch = max(floor(Int, ratio * COLS), 1)
 
     # 向左侧搜维持频率递减的最小索引
@@ -113,8 +116,8 @@ function getxyTF(v::Vector{D}) where D <: Real
 
     T = N * dt(power)             # 持续拟合时间,电机加速时间
     F = getfreq(power, MAX, ROWS) # 最高频率,以 Hz 为单位
-
-    return x, y, T, F
+    S = power.stride
+    return x, y, T, F, S, IMIN, COLS
 end
 
 
@@ -156,8 +159,8 @@ end
 
 function calibrate(v::Vector{D}, fmax::Real, fs::Real, RPM::Real, Nm::Real; verbose=false) where D
     set_fmin_fmax_fs!(100, fmax, fs)
-    x, y, T, F = getxyTF(v)
-    k, x₀, y₀  = train(x, y, verbose=false)
+    x, y, T, F, S, IMIN, COLS = getxyTF(v)
+    k, x₀, y₀ = train(x, y, verbose=false)
     global GD2 = Nm * T / ( k * RPM * (1-y₀) )
     global F2N = RPM / F
     return nothing
@@ -166,40 +169,49 @@ end
 
 function estimate(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
     set_fmin_fmax_fs!(100, fmax, fs)
-    x, y, T, F = getxyTF(v)
-    k, x₀, y₀  = train(x, y, verbose=false)
+    x, y, T, F, S = getxyTF(v)
+    k, x₀, y₀ = train(x, y, verbose=false)
     global F2N
     global GD2
-    L = length(x)
+    I = length(x)*S
     Q = GD2
     N = floor(Int, F * F2N) # 最大转速
     torque = Vector{D}(undef, N+1)
     speed  = Vector{D}(undef, N+1)
     eleci  = Vector{D}(undef, N+1)
     k⁻¹ = inv(k)
-    println(1 - y₀)
-    println(x₀)
+
     for n = 0 : N
         C = 1 - y₀ - (n+1) / N
         speed[n+1] = n
         torque[n+1] = k * Q * N / T * C
-        if C>0
-        eleci[n+1] = L * (- x₀ - k⁻¹ * log(C))
-        else
-            eleci[n+1] = 0
-        end
+        eleci[n+1] = I * (- x₀ - k⁻¹ * log(C))
     end
     return torque, speed, eleci
 end
 
 
+# 应该从起点开始对齐，终点对齐就会取到横坐标Inf的点
 function estimate2(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
     set_fmin_fmax_fs!(100, fmax, fs)
-    x, y, T, F = getxyTF(v)
-    k, x₀, y₀  = train(x, y, verbose=false)
+    x, y, T, F, S, IMIN, COLS = getxyTF(v)
+    k, x₀, y₀ = train(x, y, verbose=false)
+    Lx = length(x)
+    Lv = length(v)
+    l = one(D)
+    o = zero(D)
+    # 转速为零时候x取值
+    zerospeedx = -log(l - y₀) / k - x₀
+    # 转速为零时的 x 取值，对应的，在时频图的时间开始索引
+    tinit = IMIN + zerospeedx * Lx
+    # 时频图的比例折算成电流采样的开始索引
+    vinit = (tinit - 1) / (COLS - 1) * (Lv - 1) + 1
+
     global F2N
     global GD2
-    L = length(x)
+    global FMIN
+    global RATE
+    
     Q = GD2
     N = F * F2N
     k⁻¹  = inv(k)
@@ -212,14 +224,23 @@ function estimate2(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
     eleci  = Vector{D}(undef, nbins)
     
     for (i, n) ∈ enumerate(nspan)
-        C = 1 - y₀ - n / N
+        C = max(o, l - y₀ - n / N)
+        println(C)
         speed[i] = n
         torque[i] = k * Q * N / T * C
-        eleci[i] = L * (- x₀ - k⁻¹ * log(C))
+        eleci[i] = Lx * S * (- x₀ - k⁻¹ * log(C))
     end
-    return torque, speed, eleci
+    eleci[nbins] = eleci[nbins-1]
+    irange = floor.(Int, eleci .+ vinit)
+    FT = Butterworth(4)
+    LP = Lowpass(FMIN, fs=RATE)
+    lpf = digitalfilter(LP, FT)
+    tf  = convert(PolynomialRatio, lpf)
+    return torque, speed, filtfilt(tf, v)[irange]
 end
 # end
 
 
 
+    
+      

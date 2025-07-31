@@ -8,9 +8,9 @@ v = read_dc_motor("../data/2025630_1_OK/113443396.csv")
 using Lasso, DSP
 begin
       xi = read_dc_motor("../data/2025630_1_OK/113443396.csv")
-      LP = Lowpass(FMIN);
+      LP = Lowpass(FMIN, fs=RATE);
       FT = Butterworth(4);
-      lpf = digitalfilter(LP, FT, fs=RATE);
+      lpf = digitalfilter(LP, FT);
       tf  = convert(PolynomialRatio, lpf);
       xo  = filtfilt(tf, xi);
       yo  = Lasso.fit(FusedLasso, xi, 100).β
