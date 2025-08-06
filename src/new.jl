@@ -47,7 +47,7 @@ function gety₀(x::Vector{T}, y::Vector{T}, k::Real, x₀::Real) where T
 end
 
 
-global FMIN::Int  = 100
+global FMIN::Real = 100
 global FMAX::Real = 1100
 global RATE::Real = 60240
 
@@ -167,32 +167,9 @@ function calibrate(v::Vector{D}, fmax::Real, fs::Real, RPM::Real, Nm::Real; verb
 end
 
 
-function estimate(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
-    set_fmin_fmax_fs!(100, fmax, fs)
-    x, y, T, F, S = getxyTF(v)
-    k, x₀, y₀ = train(x, y, verbose=false)
-    global F2N
-    global GD2
-    I = length(x)*S
-    Q = GD2
-    N = floor(Int, F * F2N) # 最大转速
-    torque = Vector{D}(undef, N+1)
-    speed  = Vector{D}(undef, N+1)
-    eleci  = Vector{D}(undef, N+1)
-    k⁻¹ = inv(k)
-
-    for n = 0 : N
-        C = 1 - y₀ - (n+1) / N
-        speed[n+1] = n
-        torque[n+1] = k * Q * N / T * C
-        eleci[n+1] = I * (- x₀ - k⁻¹ * log(C))
-    end
-    return torque, speed, eleci
-end
-
 
 # 应该从起点开始对齐，终点对齐就会取到横坐标Inf的点
-function estimate2(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
+function estimate(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
     set_fmin_fmax_fs!(100, fmax, fs)
     x, y, T, F, S, IMIN, COLS = getxyTF(v)
     k, x₀, y₀ = train(x, y, verbose=false)
@@ -200,6 +177,7 @@ function estimate2(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
     Lv = length(v)
     l = one(D)
     o = zero(D)
+    
     # 转速为零时候x取值
     zerospeedx = -log(l - y₀) / k - x₀
     # 转速为零时的 x 取值，对应的，在时频图的时间开始索引
