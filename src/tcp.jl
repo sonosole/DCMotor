@@ -33,10 +33,10 @@ function putdata(sock::TCPSocket, torque  :: Vector{Float32},
                                   current :: Vector{Float32},
                                   indices :: Vector{Int32})
     try
-        SIZE = UInt32(sizeof(torque) +
-                      sizeof(speed) +
-                      sizeof(current) +
-                      sizeof(indices))
+        SIZE = Int32(sizeof(torque) +
+                     sizeof(speed) +
+                     sizeof(current) +
+                     sizeof(indices))
         write(sock, HEAD)     # 发送起始标记
         write(sock, SIZE)     # 发送数据的字节长度
         write(sock, torque)   # 发送二进制数据
@@ -64,7 +64,7 @@ RPM     :: Float32         # 良品的标定转速，与标定扭矩相对应
 Nm      :: Float32         # 良品的标定扭矩(不一定是堵转扭矩)
 Fs      :: Float32         # 电流数据的采样率
 Fmax    :: Float32         # 最大转速折算的频率，由良品定义，Fmax = c * 换向片数 * 极对数 * 每分钟转速/60
-Fmin    :: Float32         # 频率下限
+Fmin    :: Float32         # 频率下限, 用于计算时频脊线时候，排除低频干扰用
 data    :: Vector{Float32} # 电流数据
 "<e>"   :: String          # 数据结束标志
 """
@@ -85,7 +85,7 @@ function getdata(sock::TCPSocket)::Vector{UInt8}
     end
 
     # 读取数据的字节长度，必须是 4 的倍数
-    databytes = read(sock, UInt32)
+    databytes = read(sock, Int32)
     if !iszero(databytes % 4)
         @warn "数据长度 $databytes 不是4的整数倍"
         return Vector{UInt8}()
@@ -138,6 +138,19 @@ function parsedata(data::Vector{UInt8})
     Fmax = x[5]
     Fmin = x[6]
 
+    return flag,RPM,Nm,Fs,Fmax,Fmin, y
+end
+
+
+
+function fakedata()
+    flag = rand(Bool) ? one(Int32) : zero(Int32)
+    RPM  = trunc(3600rand(Float32),digits=0)
+    Nm   = rand(Float32) + 0.1f0
+    Fs   = trunc(10rand(Float32) + 60240f0, digits=0)
+    Fmax = rand(2500f0 : 1f0 : 3000f0)
+    Fmin = rand(100f0 : 1f0 : 110f0)
+    y = randn(Float32, rand(3:8))
     return flag,RPM,Nm,Fs,Fmax,Fmin, y
 end
 
