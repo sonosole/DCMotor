@@ -67,7 +67,7 @@ function getxyTF(v::Vector{D}) where D <: Real
     global FMAX
     global RATE
     power = PowerSpec(
-            fs = RATE,
+            fs   = floor(Int, RATE),
             fmin = FMIN,
             fmax = FMAX,
             winlen = 4096,
@@ -122,7 +122,7 @@ end
 
 
 
-function train(x::Vector{T}, y::Vector{T}; epochs::Int=500, lr=1e-2, verbose=false) where T <: Real
+function train(x::Vector{T}, y::Vector{T}; epochs::Int=15000, lr=1e-2, verbose=false) where T <: Real
     k  = Info(T[8.0], keepsgrad=true, type=Array{T})
     x₀ = Info(T[0.0], keepsgrad=true, type=Array{T})
 
@@ -157,20 +157,27 @@ function train(x::Vector{T}, y::Vector{T}; epochs::Int=500, lr=1e-2, verbose=fal
 end
 
 
-function calibrate(v::Vector{D}, fmax::Real, fs::Real, RPM::Real, Nm::Real; verbose=false) where D
-    set_fmin_fmax_fs!(100, fmax, fs)
+function calibrate(v::Vector{D}, Nmax::Real,
+                                 Fmin::Real,
+                                 Fmax::Real,
+                                   Fs::Real, 
+                                  RPM::Real, 
+                                   Nm::Real; verbose::Bool=false) where D
+    set_fmin_fmax_fs!(Fmin, Fmax, Fs)
     x, y, T, F, S, IMIN, COLS = getxyTF(v)
     k, x₀, y₀ = train(x, y, verbose=false)
-    global GD2 = Nm * T / ( k * RPM * (1-y₀) )
-    global F2N = RPM / F
+    N  = Nmax
+    τₒₖ = Nm
+    nₒₖ = RPM
+    global GD2 = τₒₖ * T / ( k * N * (1 - y₀ - nₒₖ/N) )
+    global F2N = Nmax / Fmax
     return nothing
 end
 
 
 
 # 应该从起点开始对齐，终点对齐就会取到横坐标Inf的点
-function estimate(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
-    set_fmin_fmax_fs!(100, fmax, fs)
+function estimate(v::Vector{D}, fs::Real; verbose::Bool=false) where D
     x, y, T, F, S, IMIN, COLS = getxyTF(v)
     k, x₀, y₀ = train(x, y, verbose=false)
     Lx = length(x)
@@ -214,8 +221,11 @@ function estimate(v::Vector{D}, fmax::Real, fs::Real; verbose=false) where D
     LP = Lowpass(FMIN, fs=RATE)
     lpf = digitalfilter(LP, FT)
     tf  = convert(PolynomialRatio, lpf)
-    return torque, speed, filtfilt(tf, v)[irange]
+    return torque, speed, filtfilt(tf, v)[irange], irange
 end
+
+
+
 # end
 
 

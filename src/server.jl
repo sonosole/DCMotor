@@ -28,6 +28,20 @@ function run_server(ip::IPv4, port::Int)
                     println("Fs:$Fs")
                     println("Fmax:$Fmax")
                     println("Fmin:$Fmin")
+                    sleep(4)
+                    if !isempty(y)
+                        putdata(sock, one(UInt32), 
+                                    ones(Float32, 500),
+                                    2ones(Float32, 500),
+                                    3ones(Float32, 500),
+                                    UInt32.(1:500))
+                    else
+                        putdata(sock, zero(UInt32), 
+                                    Float32[],
+                                    Float32[],
+                                    Float32[],
+                                    UInt32[])
+                    end
                 end
             end
         end
