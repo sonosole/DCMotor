@@ -50,19 +50,26 @@ end
 global FMIN::Real = 100
 global FMAX::Real = 1100
 global RATE::Real = 60240
+global F2N::Real
+global GD2::Real
+
 
 function set_fmin_fmax_fs!(fmin, fmax, fs)
-    global FMIN = fmin
-    global FMAX = fmax
     global RATE = floor(Int, fs)
+    global FMAX = min(2fmax, RATE/2) # 故意放大范围
+    global FMIN = fmin               # 范围不放大，保守
+    return nothing
+end
+
+function setfmax!(fmax)
+    coef = 1.2f0 # 适当地放大搜索范围
+    global FMAX = min(coef*fmax, RATE/2)
     return nothing
 end
 
 
-global F2N::Real
-global GD2::Real
 
-function getxyTF(v::Vector{D}) where D <: Real
+function getxyetc(v::Vector{D}) where D <: Real
     global FMIN
     global FMAX
     global RATE
@@ -164,13 +171,14 @@ function calibrate(v::Vector{D}, Nmax::Real,
                                   RPM::Real, 
                                    Nm::Real; verbose::Bool=false) where D
     set_fmin_fmax_fs!(Fmin, Fmax, Fs)
-    x, y, T, F, S, IMIN, COLS = getxyTF(v)
-    k, x₀, y₀ = train(x, y, verbose=false)
+    x, y, T, F, S, IMIN, COLS = getxyetc(v)
+    k, x₀, y₀ = train(x, y; verbose)
     N  = Nmax
     τₒₖ = Nm
     nₒₖ = RPM
     global GD2 = τₒₖ * T / ( k * N * (1 - y₀ - nₒₖ/N) )
-    global F2N = Nmax / Fmax
+    global F2N = N / F
+    setfmax!(F)
     return nothing
 end
 
@@ -178,8 +186,8 @@ end
 
 # 应该从起点开始对齐，终点对齐就会取到横坐标Inf的点
 function estimate(v::Vector{D}, fs::Real; verbose::Bool=false) where D
-    x, y, T, F, S, IMIN, COLS = getxyTF(v)
-    k, x₀, y₀ = train(x, y, verbose=false)
+    x, y, T, F, S, IMIN, COLS = getxyetc(v)
+    k, x₀, y₀ = train(x, y; verbose)
     Lx = length(x)
     Lv = length(v)
     l = one(D)
