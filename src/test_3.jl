@@ -27,22 +27,33 @@ plot!(tz,nz, framestyle=:origin, label="ng", xlabel="torque (N/m)", ylabel="spee
 
 gui()
 
+begin
+Coef = 40
+Nmax = 3000
+Fmax = Coef * Nmax/60
+Fmin = 110
+Fs   = 60240
+RPM  = 2400
+Nm   = 1.0
 
 calibrate(
     read_dc_motor("../data/2025630_1_OK/113443396.csv"),
-    1100,
-    60240,
-    2250,
-    1.15)
+    Nmax,
+    Fmin,
+    Fmax,
+    Fs,
+    RPM,
+    Nm)
+end
 
 
-
-torque, speed, v = estimate(
+torque, speed, v, _ = estimate(
     read_dc_motor("../data/2025630_1_OK/113334731.csv"), 
-    1100, 60240)
+    Fs)
 
 plot(torque, speed, ylabel="rpm", xlabel="Nm", label="speed", framestyle=:origin)
-plot!(twinx(), torque, v, ylabel="I (A)", color=:red, label="current")
+plot!([Nm], [RPM], marker=5)
+plot!(twinx(), torque, v, ylabel="I (A)", color=:red, label="current", marker=2)
 title!("ok")
 
 torque, speed, v = estimate(
@@ -52,6 +63,7 @@ torque, speed, v = estimate(
 plot(torque, speed, ylabel="rpm", xlabel="Nm", label="speed", framestyle=:origin)
 plot!(twinx(), torque, v, ylabel="I (A)", color=:red, label="current")
 title!("ng")
+
 
 
 

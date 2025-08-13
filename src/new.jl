@@ -56,10 +56,11 @@ global GD2::Real
 
 function set_fmin_fmax_fs!(fmin, fmax, fs)
     global RATE = floor(Int, fs)
-    global FMAX = min(2fmax, RATE/2) # 故意放大范围
-    global FMIN = fmin               # 范围不放大，保守
+    global FMAX = min(2fmax, RATE/2) # 故意放大校准时的频率范围
+    global FMIN = fmin               # 范围不放大，保守使用
     return nothing
 end
+
 
 function setfmax!(fmax)
     coef = 1.2f0 # 适当地放大搜索范围
@@ -210,7 +211,7 @@ function estimate(v::Vector{D}, fs::Real; verbose::Bool=false) where D
     k⁻¹  = inv(k)
     nmax = N * (1 - y₀)
     τmax = k * Q * N * (1 - y₀) / T
-    nspan  = range(0, nmax, 1000)
+    nspan  = range(0, nmax, 100)
     nbins  = length(nspan)
     torque = Vector{D}(undef, nbins)
     speed  = Vector{D}(undef, nbins)
@@ -218,7 +219,6 @@ function estimate(v::Vector{D}, fs::Real; verbose::Bool=false) where D
     
     for (i, n) ∈ enumerate(nspan)
         C = max(o, l - y₀ - n / N)
-        println(C)
         speed[i] = n
         torque[i] = k * Q * N / T * C
         eleci[i] = Lx * S * (- x₀ - k⁻¹ * log(C))
