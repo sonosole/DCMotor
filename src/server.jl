@@ -19,29 +19,29 @@ function run_server(ip::IPv4, port::Int)
             @async begin
                 while isopen(sock)
                     uint8 = getdata(sock)
-                    flag,RPM,Nm,Fs,Fmax,Fmin, y = parsedata(uint8)
+                    flag,RPM,Nm,Fs,Fmax,Fmin,Nmax, y = parsedata(uint8)
 
-                    println("------------")
+                    println("getting nbytes: ", length(uint8))
                     println("flag:$flag")
                     println("RPM:$RPM")
                     println("Nm:$Nm")
                     println("Fs:$Fs")
                     println("Fmax:$Fmax")
                     println("Fmin:$Fmin")
-                    sleep(4)
-                    if !isempty(y)
-                        putdata(sock, one(UInt32), 
-                                    ones(Float32, 500),
-                                    2ones(Float32, 500),
-                                    3ones(Float32, 500),
-                                    UInt32.(1:500))
-                    else
-                        putdata(sock, zero(UInt32), 
-                                    Float32[],
-                                    Float32[],
-                                    Float32[],
-                                    UInt32[])
-                    end
+                    # sleep(4)
+                    # if !isempty(y)
+                    #     putdata(sock, one(UInt32), 
+                    #                 ones(Float32, 500),
+                    #                 2ones(Float32, 500),
+                    #                 3ones(Float32, 500),
+                    #                 UInt32.(1:500))
+                    # else
+                    #     putdata(sock, zero(UInt32), 
+                    #                 Float32[],
+                    #                 Float32[],
+                    #                 Float32[],
+                    #                 UInt32[])
+                    # end
                 end
             end
         end

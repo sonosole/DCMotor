@@ -9,16 +9,14 @@ const TAIL = transcode(ENCODING, FINAL) # 文件尾编码
 const lstart = length(START)            # 开始标记长度
 const lfinal = length(FINAL)            # 结束标记长度
 
-# 172.25.16.1
+
 # 定义地址和端口
-ipv4 = IPv4(172, 25, 16, 1)
+ipv4 = IPv4(127, 0, 0, 1)
 port = 8000
 
 
 
 """
-    putdata(sock::TCPSocket, data::Vector{Float32})
-
 服务端返回格式：
 "<s>"
 nbytes  :: Int32             # 后续所有数值数据的比特数，不包括结束标志
@@ -29,7 +27,7 @@ current :: Vector{Float32}   # 电流
 indices :: Vector{Int32}     # 所取电流的实际索引
 "<e>"
 """
-function putdata(sock::TCPSocket, flag    :: Int32
+function putdata(sock::TCPSocket, flag    :: Int32,
                                   torque  :: Vector{Float32},
                                   speed   :: Vector{Float32},
                                   current :: Vector{Float32},
@@ -72,7 +70,7 @@ Nm      :: Float32         # 良品的标定扭矩(不一定是堵转扭矩)
 Fs      :: Float32         # 电流数据的采样率
 Nmax    :: Float32         # 最大转速，多少转每分钟，最大转速折算的频率，由良品定义，Fmax = c * 换向片数 * 极对数 * 每分钟转速/60
 Nmin    :: Float32         # 最小转速，多少转每分钟
-Coe     :: Float32         # 最大转速折算的频率，Coe = c * 换向片数 * 极对数;
+Coef    :: Float32         # 最大转速折算的频率，Coef = c * 换向片数 * 极对数;
 data    :: Vector{Float32} # 电流数据
 "<e>"   :: String          # 数据结束标志
 """
@@ -146,9 +144,10 @@ function parsedata(data::Vector{UInt8})
     Fs   = x[4]  # 电流数据的采样率
     Nmax = x[5]  # 最大转速，多少转每分钟
     Nmin = x[6]  # 最小转速，多少转每分钟
-    Coef = X[7]  # 用于计算频率的系数，Coef = c * 换向片数 * 极对数
-    Fmax = Coef * Nmax / 60f0
-    Fmin = Coef * Nmin / 60f0
+    Coef = x[7]  # 用于计算频率的系数，Coef = c * 换向片数 * 极对数
+    Fmax = Coef * Nmax / 60f0 # 脊线的最大频率
+    Fmin = Coef * Nmin / 60f0 # 脊线的最小频率
+    
     return flag,RPM,Nm,Fs,Fmax,Fmin,Nmax, x[8:n]
 end
 
@@ -159,9 +158,10 @@ function fakedata()
     RPM  = trunc(3600rand(Float32),digits=0)
     Nm   = rand(Float32) + 0.1f0
     Fs   = trunc(10rand(Float32) + 60240f0, digits=0)
-    Fmax = rand(2500f0 : 1f0 : 3000f0)
-    Fmin = rand(100f0 : 1f0 : 110f0)
-    y = randn(Float32, rand(3:8))
-    return flag,RPM,Nm,Fs,Fmax,Fmin, y
+    Nmax = rand(2500f0 : 1f0 : 3000f0)
+    Nmin = rand(10f0 : 1f0 : 110f0)
+    Coef = rand(20f0 : 1f0 : 30f0)
+    data = randn(Float32, rand(3:8))
+    return flag,RPM,Nm,Fs,Nmax,Nmin,Coef, data
 end
 
