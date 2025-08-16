@@ -47,6 +47,19 @@ function gety₀(x::Vector{T}, y::Vector{T}, k::Real, x₀::Real) where T
 end
 
 
+# 最小二乘拟合直线系数
+function fitkb(x::Vector{D}, y::Vector{D}) where D
+    ∑y  = sum(y)
+    ∑x  = sum(x)
+    ∑yx = sum(y .* x)
+    ∑xx = sum(x .* x)
+    N = length(x)
+    k = (N*∑yx - ∑y*∑x) / (N*∑xx - ∑x*∑x)
+    b = (∑y - k*∑x) / N
+    return k, b
+end
+
+
 global FMIN::Real = 100
 global FMAX::Real = 1100
 global RATE::Real = 60240
@@ -206,12 +219,13 @@ function estimate(v::Vector{D}, fs::Real; verbose::Bool=false) where D
     global FMIN
     global RATE
     
+    M = 100
     Q = GD2
     N = F * F2N
     k⁻¹  = inv(k)
     nmax = N * (1 - y₀)
     τmax = k * Q * N * (1 - y₀) / T
-    nspan  = range(0, nmax, 100)
+    nspan  = range(0, nmax, M)
     nbins  = length(nspan)
     torque = Vector{D}(undef, nbins)
     speed  = Vector{D}(undef, nbins)
@@ -225,12 +239,18 @@ function estimate(v::Vector{D}, fs::Real; verbose::Bool=false) where D
     end
     eleci[nbins] = eleci[nbins-1]
     irange = floor.(Int, eleci .+ vinit)
+
     FT = Butterworth(4)
     LP = Lowpass(FMIN, fs=RATE)
     lpf = digitalfilter(LP, FT)
     tf  = convert(PolynomialRatio, lpf)
-    return torque, speed, filtfilt(tf, v)[irange], irange
+    current = D.(filtfilt(tf, v)[irange])
+
+    k, b = fitkb(torque[M÷2:M], current[M÷2:M])
+    fitted = k .* torque .+ b
+    return torque, speed, fitted, current, irange
 end
+
 
 
 
