@@ -1,9 +1,21 @@
-info = tvsf(power32, read_dc_motor("../data/2025630_1_OK/113443396.csv");verbose=true,lr=1e-2,epochs=800)
-rpm  = 2250
-Nm⁻¹ = 1.15
-coef = TSCoef(info, rpm, Nm⁻¹)
-lcoef = LineCoef(coef, info)
-n, t  = drawtn(lcoef)
+begin
+    Coef = 40
+    Nmax = 3000
+    Fmax = Coef * Nmax/60
+    Fmin = 110
+    Fs   = 60240
+    RPM  = 2000
+    Nm   = 1.0
+    
+    @time calibrate(
+        read_dc_motor("../data/2025630_1_OK/113443396.csv"),
+        Nmax,
+        Fmin,
+        Fmax,
+        Fs,
+        RPM,
+        Nm, lr=1e-2,epochs=10000)
+end
 
 plot()
 
@@ -12,10 +24,9 @@ for (root, dirs, files) in walkdir("../data/2025630_1_OK/")
     for file ∈ files
         !isequal(".csv", last(splitext(file))) && continue
         fullpath = joinpath(root, file)
-        # println(fullpath)
-        infoxx = tvsf(power32, fullpath; verbose=false,lr=1e-2,epochs=800)
-        nx,tx = drawtn(LineCoef(coef, infoxx))
-        plot!(tx,nx, framestyle=:origin, color=:green)
+        torque, speed, curr, idx = estimate(
+        read_dc_motor(fullpath), lr=1e-2,epochs=10000);
+        plot!(torque, speed, framestyle=:origin, color=:green, leg=nothing)
         gui()
     end
 end
@@ -26,10 +37,9 @@ for (root, dirs, files) in walkdir("../data/2025630_1_NG/")
     for file ∈ files
         !isequal(".csv", last(splitext(file))) && continue
         fullpath = joinpath(root, file)
-        # println(fullpath)
-        infoxx = tvsf(power32, fullpath; verbose=false,lr=1e-2,epochs=800)
-        nx,tx = drawtn(LineCoef(coef, infoxx))
-        plot!(tx,nx, framestyle=:origin, color=:red)
+        torque, speed, curr, idx = estimate(
+        read_dc_motor(fullpath), lr=1e-2,epochs=10000);
+        plot!(torque, speed, framestyle=:origin, color=:red, leg=nothing)
         gui()
     end
 end
@@ -40,17 +50,19 @@ for (root, dirs, files) in walkdir("../data/2025630_2_NG/")
     for file ∈ files
         !isequal(".csv", last(splitext(file))) && continue
         fullpath = joinpath(root, file)
-        # println(fullpath)
-        infoxx = tvsf(power32, fullpath; verbose=false,lr=1e-2,epochs=800)
-        nx,tx = drawtn(LineCoef(coef, infoxx))
-        plot!(tx,nx, framestyle=:origin, color=:purple)
+        torque, speed, curr, idx = estimate(
+        read_dc_motor(fullpath), lr=1e-2,epochs=10000);
+        plot!(torque, speed, framestyle=:origin, color=:cyan, leg=nothing)
         gui()
     end
 end
 
-
-plot!(t, n, framestyle=:origin, linewidth=3, color=:black, alpha=0.5, xlims=(0, 1.2), leg=nothing)
-xticks!(0:0.1:1.5)
-yticks!(0:200:2400)
-ylabel!("rmp")
-xlabel!("N*m")
+let
+    @time torque, speed, curr, idx = estimate(
+        read_dc_motor("../data/2025630_1_OK/113443396.csv"), lr=1e-2,epochs=10000);
+    plot!(torque, speed, framestyle=:origin, color=:black, leg=nothing)
+    plot!([Nm], [RPM], marker=2)
+    ylabel!("rmp")
+    xlabel!("N*m")
+    xticks!(0:0.2:3.6)
+end

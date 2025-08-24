@@ -238,7 +238,7 @@ function estimate(v::Vector{D}, fs::Real; verbose::Bool=false) where D
         eleci[i] = Lx * S * (- x₀ - k⁻¹ * log(C))
     end
     eleci[nbins] = eleci[nbins-1]
-    irange = floor.(Int, eleci .+ vinit)
+    irange = floor.(Int32, eleci .+ vinit)
 
     FT = Butterworth(4)
     LP = Lowpass(FMIN, fs=RATE)
@@ -248,7 +248,8 @@ function estimate(v::Vector{D}, fs::Real; verbose::Bool=false) where D
 
     k, b = fitkb(torque[M÷2:M], current[M÷2:M])
     fitted = k .* torque .+ b
-    return torque, speed, fitted, current, irange
+    # return torque, speed, fitted, current, irange
+    return torque, speed, fitted, irange
 end
 
 
