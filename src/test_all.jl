@@ -14,7 +14,7 @@ begin
         Fmax,
         Fs,
         RPM,
-        Nm, lr=1e-2,epochs=10000)
+        Nm, lr=2e-3,epochs=10000)
 end
 
 plot()
@@ -25,7 +25,7 @@ for (root, dirs, files) in walkdir("../data/2025630_1_OK/")
         !isequal(".csv", last(splitext(file))) && continue
         fullpath = joinpath(root, file)
         torque, speed, curr, idx = estimate(
-        read_dc_motor(fullpath), lr=1e-2,epochs=10000);
+        read_dc_motor(fullpath), lr=2e-3,epochs=10000);
         plot!(torque, speed, framestyle=:origin, color=:green, leg=nothing)
         gui()
     end
@@ -38,7 +38,7 @@ for (root, dirs, files) in walkdir("../data/2025630_1_NG/")
         !isequal(".csv", last(splitext(file))) && continue
         fullpath = joinpath(root, file)
         torque, speed, curr, idx = estimate(
-        read_dc_motor(fullpath), lr=1e-2,epochs=10000);
+        read_dc_motor(fullpath), lr=2e-3,epochs=10000);
         plot!(torque, speed, framestyle=:origin, color=:red, leg=nothing)
         gui()
     end
@@ -51,7 +51,7 @@ for (root, dirs, files) in walkdir("../data/2025630_2_NG/")
         !isequal(".csv", last(splitext(file))) && continue
         fullpath = joinpath(root, file)
         torque, speed, curr, idx = estimate(
-        read_dc_motor(fullpath), lr=1e-2,epochs=10000);
+        read_dc_motor(fullpath), lr=2e-3,epochs=10000);
         plot!(torque, speed, framestyle=:origin, color=:cyan, leg=nothing)
         gui()
     end
@@ -59,10 +59,22 @@ end
 
 let
     @time torque, speed, curr, idx = estimate(
-        read_dc_motor("../data/2025630_1_OK/113443396.csv"), lr=1e-2,epochs=10000);
+        read_dc_motor("../data/2025630_1_OK/113443396.csv"), lr=2e-3,epochs=10000);
     plot!(torque, speed, framestyle=:origin, color=:black, leg=nothing)
     plot!([Nm], [RPM], marker=2)
     ylabel!("rmp")
     xlabel!("N*m")
-    xticks!(0:0.2:3.6)
+    xticks!(0:0.1:3.4)
+    xaxis!(rotation=45)
+end
+
+let
+    COUNT = 1
+    while true
+        println(COUNT)
+        COUNT += 1
+        sleep(3)
+        torque, speed, curr, idx = estimate(
+            read_dc_motor("../data/2025630_1_OK/113443396.csv"), lr=2e-3,epochs=10000);
+    end
 end
