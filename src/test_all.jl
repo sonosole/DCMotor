@@ -73,8 +73,17 @@ let
     while true
         println(COUNT)
         COUNT += 1
-        sleep(3)
-        torque, speed, curr, idx = estimate(
-            read_dc_motor("../data/2025630_1_OK/113443396.csv"), lr=2e-3,epochs=10000);
+        sleep(1)
+        try
+            if rand() > 0.5
+                torque, speed, curr, idx = estimate(
+                read_dc_motor("../data/2025630_1_OK/113443396.csv"), lr=2e-3,epochs=10000);
+            else
+                torque, speed, curr, idx = estimate(
+                randn(Float32, 60240), lr=2e-3,epochs=10000);
+            end
+        catch err
+            println("bad happened")
+        end
     end
 end
