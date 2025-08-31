@@ -1,4 +1,6 @@
 begin
+    LR = 1E-3
+    EPOCHS = 1000
     Coef = 40
     Nmax = 3000
     Fmax = Coef * Nmax/60
@@ -14,7 +16,7 @@ begin
         Fmax,
         Fs,
         RPM,
-        Nm, lr=2e-3,epochs=10000)
+        Nm, lr=LR,epochs=EPOCHS)
 end
 
 plot()
@@ -25,7 +27,7 @@ for (root, dirs, files) in walkdir("../data/2025630_1_OK/")
         !isequal(".csv", last(splitext(file))) && continue
         fullpath = joinpath(root, file)
         torque, speed, curr, idx = estimate(
-        read_dc_motor(fullpath), lr=2e-3,epochs=10000);
+        read_dc_motor(fullpath), lr=LR,epochs=EPOCHS);
         plot!(torque, speed, framestyle=:origin, color=:green, leg=nothing)
         gui()
     end
@@ -38,7 +40,7 @@ for (root, dirs, files) in walkdir("../data/2025630_1_NG/")
         !isequal(".csv", last(splitext(file))) && continue
         fullpath = joinpath(root, file)
         torque, speed, curr, idx = estimate(
-        read_dc_motor(fullpath), lr=2e-3,epochs=10000);
+        read_dc_motor(fullpath), lr=LR,epochs=EPOCHS);
         plot!(torque, speed, framestyle=:origin, color=:red, leg=nothing)
         gui()
     end
@@ -50,8 +52,8 @@ for (root, dirs, files) in walkdir("../data/2025630_2_NG/")
     for file ∈ files
         !isequal(".csv", last(splitext(file))) && continue
         fullpath = joinpath(root, file)
-        torque, speed, curr, idx = estimate(
-        read_dc_motor(fullpath), lr=2e-3,epochs=10000);
+        @time torque, speed, curr, idx = estimate(
+        read_dc_motor(fullpath), lr=LR,epochs=EPOCHS);
         plot!(torque, speed, framestyle=:origin, color=:cyan, leg=nothing)
         gui()
     end
@@ -59,7 +61,7 @@ end
 
 let
     @time torque, speed, curr, idx = estimate(
-        read_dc_motor("../data/2025630_1_OK/113443396.csv"), lr=2e-3,epochs=10000);
+        read_dc_motor("../data/2025630_1_OK/113443396.csv"), lr=LR,epochs=EPOCHS);
     plot!(torque, speed, framestyle=:origin, color=:black, leg=nothing)
     plot!([Nm], [RPM], marker=2)
     ylabel!("rmp")
@@ -68,22 +70,22 @@ let
     xaxis!(rotation=45)
 end
 
-let
-    COUNT = 1
-    while true
-        println(COUNT)
-        COUNT += 1
-        sleep(1)
-        try
-            if rand() > 0.5
-                torque, speed, curr, idx = estimate(
-                read_dc_motor("../data/2025630_1_OK/113443396.csv"), lr=2e-3,epochs=10000);
-            else
-                torque, speed, curr, idx = estimate(
-                randn(Float32, 60240), lr=2e-3,epochs=10000);
-            end
-        catch err
-            println("bad happened")
-        end
-    end
-end
+# let
+#     COUNT = 1
+#     while true
+#         println(COUNT)
+#         COUNT += 1
+#         sleep(1)
+#         try
+#             if rand() > 0.5
+#                 torque, speed, curr, idx = estimate(
+#                 read_dc_motor("../data/2025630_1_OK/113443396.csv"), lr=2e-3,epochs=10000);
+#             else
+#                 torque, speed, curr, idx = estimate(
+#                 randn(Float32, 60240), lr=2e-3,epochs=10000);
+#             end
+#         catch err
+#             println("bad happened")
+#         end
+#     end
+# end
