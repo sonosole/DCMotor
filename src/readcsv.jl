@@ -10,3 +10,17 @@ function read_dc_motor(path::String)
     return x
 end
 
+
+function read_dc_motor2(path::String)
+    x = Float32[]
+    for v in eachline(path)
+        push!(x, parse(Float32,v))
+    end
+    RPM  = x[1]
+    Nm   = x[2]
+    Fs   = x[3]
+    Nmax = x[4]
+    y    = x[5:end]
+    return RPM, Nm, Fs, Nmax, y
+end
+
