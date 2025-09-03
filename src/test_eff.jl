@@ -113,9 +113,9 @@ end
 begin
     plts = []
     LR = 2E-3
-    EPOCHS = 250000
+    EPOCHS = 25000
     Fmax = 4000
-    Fmin = 300
+    Fmin = 400
     plot()
     for (root, dirs, files) in walkdir("d:/repos/DCMotor/data/motor1/")
         println("Files in $root")
@@ -123,10 +123,11 @@ begin
             !isequal(".txt", last(splitext(file))) && continue
             fullpath = joinpath(root, file)
             RPM, Nm, Fs, Nmax, y = read_dc_motor2(fullpath)
-            @time x, yobs, yfitted = debug(
+            x, yobs, yfitted = debug(
                 y, Nmax, Fmin, Fmax, Fs, RPM, Nm, lr=LR,epochs=EPOCHS)
-            # plot!(x, yobs, leg=nothing);
+            plot(x, yobs, leg=nothing,framestyle=:origin);
             plot!(x, yfitted, leg=nothing);gui()
+            sleep(1)
             # push!(plts, p)
         end
     end
@@ -134,7 +135,21 @@ begin
 end
 
 
-
+function TocToc.debug(i::Vector{D}, Nmax::Real,
+                             Fmin::Real,
+                             Fmax::Real,
+                             Fs::Real,
+                             RPM::Real,
+                             Nm::Real;
+                             lr::Real=1e-3,
+                             epochs::Int=25000,
+                             verbose::Bool=false) where D
+    TocToc.set_fmin_fmax_fs!(Fmin, Fmax, Fs)
+    x, y, T, F, S, IMIN, COLS = getxyetc(i)
+    k, x₀, y₀ = TocToc.train(x, y; verbose, epochs, lr)
+    println("$k,$x₀,$y₀")
+    return x, y, TocToc.fity(x, k, x₀, y₀)
+end
 
 
 function TocToc.getxyetc(i::Vector{D}) where D <: Real
@@ -191,4 +206,84 @@ function TocToc.getxyetc(i::Vector{D}) where D <: Real
     S = power.stride
     return x, y, T, F, S, IMIN, COLS
 end
+
+
+
+f(x::Real, k::Real) = 1 - exp(-k*x)
+
+function testy(x::Vector{T},
+               y::Vector{T};
+               lr::Real=1e-3,
+               epochs::Int=25000,
+               verbose::Bool=false) where T <: Real
+    k    = T(8.0)
+    ∂k   = zero(T)
+    ∇¹k = zero(T)
+    ∇²k = zero(T)
+
+    x₀    = zero(T)
+    ∂x₀   = zero(T)
+    ∇¹x₀ = zero(T)
+    ∇²x₀ = zero(T)
+
+    y₀  = zero(T)
+    N⁻¹ = inv(length(y))
+    l   = one(T)
+    ϵ   = 1e-8
+    b₁  = 0.9
+    b₂  = 0.999
+    b₁ᵗ = b₁
+    b₂ᵗ = b₂
+
+    for e ∈ 1:epochs
+        X = x .+ x₀
+        E = exp.(-k .* X)
+        ỹ = (l - y₀) .- E
+        Y = ỹ - y
+        L = sum(Y .* Y) * N⁻¹
+
+        verbose && println("$e/$epochs: loss=", L)
+
+        ∂k   = sum(@. Y * X * E)
+        ∇¹k = b₁ * ∇¹k + (l-b₁) * ∂k
+        ∇²k = b₂ * ∇²k + (l-b₂) * ∂k * ∂k
+
+        ∂x₀   = k * sum(@. Y * E)
+        ∇¹x₀ = b₁ * ∇¹x₀ + (l-b₁) * ∂x₀
+        ∇²x₀ = b₂ * ∇²x₀ + (l-b₂) * ∂x₀ * ∂x₀
+
+        μ   = - sqrt(l-b₂ᵗ) / (l-b₁ᵗ) * lr
+        k  += μ * ∇¹k  / sqrt(∇²k  + ϵ)
+        x₀ += μ * ∇¹x₀ / sqrt(∇²x₀ + ϵ)
+        y₀  = gety₀(x, y, k, x₀)
+
+        b₁ᵗ *= b₁
+        b₂ᵗ *= b₂
+    end
+    return k, x₀, y₀
+end
+
+function fity(x::Vector{T}, k::Real, x₀::Real, y₀::Real) where T
+    l = one(T)
+    y = @. l - exp(-k * (x + x₀)) - y₀
+    return y
+end
+
+function gety₀(x::Vector{T}, y::Vector{T}, k::Real, x₀::Real) where T
+    l  = one(T)
+    N  = T(length(x))
+    y₀ = l - sum(@. exp(-k * (x + x₀)) + y) / N
+    return y₀
+end
+
+
+begin
+    x = collect(0.01:1e-2:1)
+    n = length(x)
+    y = f.(x, 9)
+    plot(x,y,marker=2)
+    k,x0,y0=testy(collect(range(0,1,n)),y)
+    plot!(x,fity(x, k,x0,y0),framestyle=:origin)
+end
+
 
